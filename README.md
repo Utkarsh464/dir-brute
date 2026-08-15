@@ -1,4 +1,4 @@
-# Brutescraping
+# dir-brute
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -17,8 +17,8 @@ Designed for learning, lab practice, and authorized security testing only.
 ## Installation
 
 ```bash
-git clone https://github.com/Utkarsh464/brutescraping.git
-cd brutescraping
+git clone https://github.com/Utkarsh464/dir-brute.git
+cd dir-brute
 pip install -r requirements.txt
 ```
 
