@@ -1,4 +1,5 @@
 import argparse
+import threading
 import requests
 from crawl import crawll
 
@@ -57,11 +58,17 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     try:
-        brute(args.url, args.wordlist_path, args.save)
+        t1 = threading.Thread(target=brute, args=(args.url, args.wordlist_path, args.save))
+        t1.start()
+
     except Exception as e:
         print(f"some error occoured")
     if args.crawl is not None:
         try:
-            crawll(args.crawl)
+            t2 = threading.Thread(target=crawll, args=(args.crawl,))
+            t2.start()
+            t2.join()
         except Exception as e:
             print(f"some error occoured")
+     
+    t1.join()
