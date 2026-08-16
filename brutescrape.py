@@ -3,7 +3,7 @@ import requests
 from helpers import correct_code, matches_code, crawl_file
 
 
-def default_brute(url, wordlist, code=None, file_name=None):
+def default_brute(url, wordlist, code=None, file_name=None, recursion=False):
     saved = None
     if file_name is not None:
         saved = open(file_name, "w")
@@ -13,6 +13,10 @@ def default_brute(url, wordlist, code=None, file_name=None):
                 r = requests.get(url + i.strip(), timeout=10)
                 if code is None or matches_code(r.status_code, code):
                     print(r.status_code, r.url)
+                    if r.status_code == 200 and recursion == True:
+                        default_brute(
+                            r.url, wordlist, code=None, file_name=None, recursion=False
+                        )
                     if saved is not None:
                         saved.write(r.url + "\n")
             except Exception as e:
@@ -54,7 +58,21 @@ if __name__ == "__main__":
         type=int,
     )
 
+    parser.add_argument(
+        "-R",
+        "--recursion",
+        help="recursive brute",
+        action="store_true",
+    )
+
     args = parser.parse_args()
+    print(f"starting brute force on {args.url}")
+    if args.filter is not None:
+        print(f"filtering for status code {args.filter}")
+    if args.file_name is not None:
+        print(f"saving matches to {args.file_name}")
+    if args.crawl:
+        print(f"crawling urls from {args.crawl}")
     if args.filter is not None:
         try:
             correct_code(args.filter)
@@ -62,7 +80,9 @@ if __name__ == "__main__":
             print(e)
 
     try:
-        default_brute(args.url, args.wordlist_path, args.filter, args.file_name)
+        default_brute(
+            args.url, args.wordlist_path, args.filter, args.file_name, args.recursion
+        )
         if args.crawl:
             crawl_file(args.crawl)
 
