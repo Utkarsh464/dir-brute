@@ -1,35 +1,29 @@
 import argparse
-import threading
 import requests
 from crawl import crawll
 
 
-def brute(url, wordlist, save=None):
+def brute(url, wordlist, save=None, crawl=None):
+    live = None
     if save is not None:
-        with open(wordlist) as urls:
-            with open(save, "w") as live:
-                r = None
-                for i in urls:
-                    try:
-                        r = requests.get(url + i.strip(), timeout=10)
-                        if r.status_code != 404:
-                            print(r.status_code, r.url)
-                    except Exception as e:
-                        print("cant send request")
-                    if r is not None and r.status_code == 200:
-                        live.write(r.url + "\n")
-        print(f"all live urls are saved in {save}")
-        return save
-    if save is None:
-        with open(wordlist) as urls:
-            r = None
-            for i in urls:
-                try:
-                    r = requests.get(url + i.strip(), timeout=10)
+        live = open(save, "w")
+    with open(wordlist) as urls:
+        r = None
+        for i in urls:
+            try:
+                r = requests.get(url + i.strip(), timeout=10)
+                if r.status_code != 404:
                     print(r.status_code, r.url)
-                except Exception as e:
-                    print("cant send request")
-    return None
+            except Exception as e:
+                print("cant send request")
+            if live is not None and r is not None and r.status_code == 200:
+                live.write(r.url + "\n")
+    if live is not None:
+        live.close()
+        print(f"all live urls are saved in {save}")
+    if crawl is not None:
+        crawll(crawl)
+    return save
 
 
 if __name__ == "__main__":
@@ -58,17 +52,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     try:
-        t1 = threading.Thread(target=brute, args=(args.url, args.wordlist_path, args.save))
-        t1.start()
-
+        brute(args.url, args.wordlist_path, args.save, args.crawl)
     except Exception as e:
         print(f"some error occoured")
-    if args.crawl is not None:
-        try:
-            t2 = threading.Thread(target=crawll, args=(args.crawl,))
-            t2.start()
-            t2.join()
-        except Exception as e:
-            print(f"some error occoured")
-     
-    t1.join()
