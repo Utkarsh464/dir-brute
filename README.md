@@ -47,8 +47,8 @@
 
 - **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
 - **Recursive** — `-R` re-scans every `200` URL it finds, one level deep
-- **404-smart** — dead ends are easy to spot; by default every hit prints as `status URL`
-- **`-s` / `--file_name`** — writes matching URLs to a file, one per line
+- **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
+- **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
 - **Sequential** — brute-force first, then crawl the saved list; no races
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
@@ -100,7 +100,7 @@ python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt
 # all urls are saved in live_urls.txt
 ```
 
-Every response that passes the filter is written — one URL per line, ready to crawl.
+Every response URL is written (only the `-f` status code when one is set) — one URL per line, ready to crawl. Note: without `-f`, `-s` saves _all_ responses, 404s included.
 
 ### Recursive brute
 
@@ -112,7 +112,7 @@ python brutescrape.py http://example.com/ wordlist.txt -R
 # ...
 ```
 
-Every `200` URL gets re-scanned against the wordlist, one level deep, so you can find nested directories too.
+Every `200` URL gets re-scanned against the wordlist, one level deep, so you can find nested directories too. Note: the recursive pass currently ignores `-f` and `-s` — it always runs unfiltered.
 
 ### Crawl saved URLs
 
