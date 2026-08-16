@@ -46,6 +46,7 @@
 ## ✨ Features
 
 - **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
+- **Recursive** — `-R` re-scans every `200` URL it finds, one level deep
 - **404-smart** — dead ends are easy to spot; by default every hit prints as `status URL`
 - **`-s` / `--file_name`** — writes matching URLs to a file, one per line
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
@@ -101,6 +102,18 @@ python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt
 
 Every response that passes the filter is written — one URL per line, ready to crawl.
 
+### Recursive brute
+
+```bash
+python brutescrape.py http://example.com/ wordlist.txt -R
+# 200 http://example.com/admin
+# 200 http://example.com/admin/users
+# 200 http://example.com/login
+# ...
+```
+
+Every `200` URL gets re-scanned against the wordlist, one level deep, so you can find nested directories too.
+
 ### Crawl saved URLs
 
 ```bash
@@ -117,6 +130,7 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
 | `url`                  | Target base URL, e.g. `http://example.com/`                   |
 | `wordlist_path`        | Path to the wordlist — one directory to check per line        |
 | `-f, --filter CODE`    | Only print responses matching this status code                |
+| `-R, --recursion`      | Re-scan every `200` URL found, one level deep                 |
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line                    |
 | `--crawl FILE`         | Read URLs from a file saved with `-s` and print page contents |
 
