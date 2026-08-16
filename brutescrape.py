@@ -1,40 +1,37 @@
 import argparse
 import requests
-from crawl import crawll
+from helpers import correct_code, matches_code, crawl_file
 
 
-def brute(url, wordlist, save=None, crawl=None):
-    live = None
-    if save is not None:
-        live = open(save, "w")
+def default_brute(url, wordlist, code=None, file_name=None):
+    saved = None
+    if file_name is not None:
+        saved = open(file_name, "w")
     with open(wordlist) as urls:
-        r = None
         for i in urls:
             try:
                 r = requests.get(url + i.strip(), timeout=10)
-                if r.status_code != 404:
+                if code is None or matches_code(r.status_code, code):
                     print(r.status_code, r.url)
+                    if saved is not None:
+                        saved.write(r.url + "\n")
             except Exception as e:
                 print("cant send request")
-            if live is not None and r is not None and r.status_code == 200:
-                live.write(r.url + "\n")
-    if live is not None:
-        live.close()
-        print(f"all live urls are saved in {save}")
-    if crawl is not None:
-        crawll(crawl)
-    return save
+    if saved is not None:
+        saved.close()
+        print(f"all urls are saved in {file_name}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Brute-force directories on a target URL from a wordlist, "
-        "optionally save live (HTTP 200) URLs and crawl their contents."
+        "optionally save matching URLs and crawl their contents."
     )
     parser.add_argument(
-        "--save",
+        "--file_name",
+        "-s",
         metavar="FILE",
-        help="save live (HTTP 200) URLs to FILE, one per line",
+        help="save matching URLs to FILE, one per line",
     )
     parser.add_argument(
         "url",
@@ -47,11 +44,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "--crawl",
         metavar="FILE",
-        help="read saved live URLs from FILE (created with --save) and print "
+        help="read URLs from FILE (saved with -s/--file_name) and print "
         "the content of each page",
     )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        help="status code to filter",
+        type=int,
+    )
+
     args = parser.parse_args()
+    if args.filter is not None:
+        try:
+            correct_code(args.filter)
+        except ValueError as e:
+            print(e)
+
     try:
-        brute(args.url, args.wordlist_path, args.save, args.crawl)
+        default_brute(args.url, args.wordlist_path, args.filter, args.file_name)
+        if args.crawl:
+            crawl_file(args.crawl)
+
     except Exception as e:
         print(f"some error occoured")
