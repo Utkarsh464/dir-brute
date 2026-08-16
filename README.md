@@ -2,9 +2,9 @@
 
 # **dir-brute**
 
-### A threaded directory brute-forcer & crawler
+### A directory brute-forcer & crawler
 
-**`probe → collect → crawl`** — throw a wordlist at a target URL, keep the live hits, then read back what you found.
+**`probe → filter → collect → crawl`** — throw a wordlist at a target URL, keep the hits that matter, then read back what you found.
 
 <br>
 
@@ -15,7 +15,9 @@
 
 </div>
 
-**dir-brute** is a small security tool built while learning how directory enumeration works. It brute-forces hidden paths on a target from a wordlist, prints every response that isn't a `404`, and — with a single flag — either saves the live (HTTP `200`) URLs to a file or crawls them to dump page contents.
+**dir-brute** is a small security tool built while learning how directory enumeration works. It brute-forces hidden paths on a target from a wordlist, prints every response (or only the status code you care about with `-f`), and — with a flag — either saves the matching URLs to a file or crawls them to dump page contents.
+
+> **Try it in the lab:** a full walkthrough of using this tool against a local test server (and fixing bugs found along the way) lives in the [labs repo — dir-brute Directory Enumeration](https://github.com/Utkarsh464/labs/tree/main/web-apps/dir-brute).
 
 ---
 
@@ -26,30 +28,36 @@
               │
               ▼
       ┌─────────────────┐
-      │  brutescrape.py │   prints: status + URL for every non-404 hit
+      │  brutescrape.py │   prints: status + URL for every hit
       └────────┬────────┘
                │
-        ┌──────┴──────┐
-   --save            --crawl
-        │              │
-        ▼              ▼
-  live_urls.txt   page contents
+        ┌──────┴───────┐
+    -f/--filter      -s/--file_name
+        │                │
+        ▼                ▼
+  only matching    saved URL list
+  statuses print
+                        │
+                   --crawl
+                        ▼
+                 page contents
 ```
 
 ## ✨ Features
 
-- **Threaded** — brute-forcing and crawling run side-by-side in separate threads
-- **404-smart** — dead ends are skipped; everything else prints as `status URL`
-- **`--save`** — writes every HTTP `200` URL to a file, one per line
+- **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
+- **404-smart** — dead ends are easy to spot; by default every hit prints as `status URL`
+- **`-s` / `--file_name`** — writes matching URLs to a file, one per line
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
+- **Sequential** — brute-force first, then crawl the saved list; no races
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
 
 ## 🧰 Tools
 
-| File                               | Role                                                                                    | How to run                   |
-| ---------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------- |
-| [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves live URLs | `python brutescrape.py`      |
-| [`crawl.py`](crawl.py)             | Crawler module — reads a saved URL file and prints each page's content                  | imported by `brutescrape.py` |
+| File                               | Role                                                                                 | How to run                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------- |
+| [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python brutescrape.py`      |
+| [`helpers.py`](helpers.py)         | Status-code validation, response matching, and the crawler                           | imported by `brutescrape.py` |
 
 ## 🚀 Quick Start
 
@@ -70,40 +78,56 @@ python brutescrape.py http://example.com/ wordlist.txt
 # 200 http://example.com/admin
 # 301 http://example.com/login
 # 200 http://example.com/api
+# 404 http://example.com/nothere
 # ...
 ```
 
-### Save live URLs
+### Filter by status code
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt --save live_urls.txt
-# all live urls are saved in live_urls.txt
+python brutescrape.py http://example.com/ wordlist.txt -f 200
+# 200 http://example.com/admin
+# 200 http://example.com/api
 ```
 
-Only HTTP `200` responses make it into the file — one URL per line, ready to crawl.
+Only the status codes you ask for are printed — useful for finding live paths or dead ends.
+
+### Save URLs
+
+```bash
+python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt
+# all urls are saved in live_urls.txt
+```
+
+Every response that passes the filter is written — one URL per line, ready to crawl.
 
 ### Crawl saved URLs
 
 ```bash
 python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
-# content of this url : http://example.com/admin
+# the content of http://example.com/admin
 # <!doctype html>
 # <html>...
 ```
 
 ### Options
 
-| Argument        | Description                                                          |
-| --------------- | -------------------------------------------------------------------- |
-| `url`           | Target base URL, e.g. `http://example.com/`                          |
-| `wordlist_path` | Path to the wordlist — one directory to check per line               |
-| `--save FILE`   | Save live (HTTP 200) URLs to `FILE`, one per line                    |
-| `--crawl FILE`  | Crawl URLs from a file created with `--save` and print page contents |
+| Argument               | Description                                                   |
+| ---------------------- | ------------------------------------------------------------- |
+| `url`                  | Target base URL, e.g. `http://example.com/`                   |
+| `wordlist_path`        | Path to the wordlist — one directory to check per line        |
+| `-f, --filter CODE`    | Only print responses matching this status code                |
+| `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line                    |
+| `--crawl FILE`         | Read URLs from a file saved with `-s` and print page contents |
 
 ## 📦 Requirements
 
 - **Python 3.8+**
 - [`requests`](https://pypi.org/project/requests/) `>= 2.28` — pinned in [`requirements.txt`](requirements.txt)
+
+## 🤝 Contributing
+
+Feel free to fork this repo and open a pull request if you have ideas — better wordlists, new features, bug fixes, anything. This is a learning project, so PRs are welcome.
 
 ## ⚠️ Disclaimer
 
