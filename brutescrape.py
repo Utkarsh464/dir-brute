@@ -1,9 +1,10 @@
 import argparse
 import requests
-from helpers import correct_code, matches_code, crawl_file
+from helpers import correct_code, matches_code, crawl_file, url_normalise
 
 
 def default_brute(url, wordlist, code=None, file_name=None, recursion=False):
+    url = url_normalise(url)
     saved = None
     if file_name is not None:
         saved = open(file_name, "w")
@@ -87,4 +88,4 @@ if __name__ == "__main__":
             crawl_file(args.crawl)
 
     except Exception as e:
-        print(f"some error occoured")
+        print("something went wrong")

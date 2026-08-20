@@ -48,6 +48,7 @@
 - **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
 - **Recursive** — `-R` re-scans every `200` URL it finds, one level deep
 - **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
+- **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
 - **Sequential** — brute-force first, then crawl the saved list; no races

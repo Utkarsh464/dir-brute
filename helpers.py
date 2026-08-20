@@ -18,6 +18,15 @@ def crawl_file(file):
             url = url.strip()
             try:
                 r = requests.get(url, timeout=10)
-                print(f"the content of {r.url}: {r.text}")
+                if r.status_code == 200:
+                    print(f"the content of {r.url}: {r.text}")
             except Exception as e:
-                print(f"cant get content of {url}")
+                print(f"could not fetch {url}")
+
+
+def url_normalise(url):
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "http://" + url
+    if not url.endswith("/"):
+        url += "/"
+    return url
