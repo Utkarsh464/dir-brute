@@ -52,6 +52,7 @@
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
 - **Sequential** — brute-force first, then crawl the saved list; no races
+- **Timed** — prints total elapsed time at the end
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
 
 ## 🧰 Tools

@@ -1,5 +1,6 @@
 import argparse
 import requests
+import time
 from helpers import correct_code, matches_code, crawl_file, url_normalise
 
 
@@ -21,7 +22,7 @@ def default_brute(url, wordlist, code=None, file_name=None, recursion=False):
                     if saved is not None:
                         saved.write(r.url + "\n")
             except Exception as e:
-                print("cant send request")
+                print("request failed")
     if saved is not None:
         saved.close()
         print(f"all urls are saved in {file_name}")
@@ -67,6 +68,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    start = time.time()
     print(f"starting brute force on {args.url}")
     if args.filter is not None:
         print(f"filtering for status code {args.filter}")
@@ -86,6 +88,7 @@ if __name__ == "__main__":
         )
         if args.crawl:
             crawl_file(args.crawl)
-
+        end = time.time()
+        print(f"time taken: {end - start:.2f}s")
     except Exception as e:
         print("something went wrong")
