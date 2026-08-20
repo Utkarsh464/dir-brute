@@ -29,4 +29,9 @@ def url_normalise(url):
         url = "http://" + url
     if not url.endswith("/"):
         url += "/"
+    url = url.strip()
     return url
+
+def check_url(url):
+    r = requests.get(url , timeout=10)
+    return r

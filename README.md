@@ -51,7 +51,7 @@
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
-- **Sequential** — brute-force first, then crawl the saved list; no races
+- **Concurrent** — `-t N` runs N requests in parallel (default 10); brute-force first, then crawl the saved list
 - **Timed** — prints total elapsed time at the end
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
 
@@ -134,6 +134,7 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
 | `-f, --filter CODE`    | Only print responses matching this status code                |
 | `-R, --recursion`      | Re-scan every `200` URL found, one level deep                 |
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line                    |
+| `-t, --threads N`      | Run N requests in parallel (default 10)                       |
 | `--crawl FILE`         | Read URLs from a file saved with `-s` and print page contents |
 
 ## 📦 Requirements
