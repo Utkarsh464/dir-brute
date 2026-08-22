@@ -48,6 +48,7 @@
 - **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
   - **Recursive** — `-R` re-scans every `200` URL it finds, descending into each (no depth limit)
 - **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
+- **Verbose** — `-v` prints every request with its status code (and the redirect target for 3xx), so you see the full probe stream instead of just the hits
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — prints the contents of every found page. Use it alone to crawl the scan's own results, or pass a file (`--crawl urls.txt`) to crawl a saved list
@@ -83,6 +84,18 @@ python brutescrape.py http://example.com/ wordlist.txt
 # 301 http://example.com/login
 # 200 http://example.com/api
 # 404 http://example.com/nothere
+# ...
+```
+
+### Verbose mode
+
+Add `-v` to see every request, not just the hits:
+
+```bash
+python brutescrape.py http://example.com/ wordlist.txt -v
+# http://example.com/.bash_history , 404
+# http://example.com/admin , 200
+# http://example.com/login , 301 redirected to /login.php
 # ...
 ```
 
@@ -159,6 +172,7 @@ Combine with `-R` or `-t` to crawl a larger set of discovered pages.
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
 | `-t, --threads N` | Run N requests in parallel; combine with `-R` for threaded recursion |
 | `--crawl [FILE]` | Print page contents of found URLs. No file = crawl the scan results; with a file = crawl that saved list |
+| `-v, --verbose` | Print every request with its status code (and redirect target for 3xx) |
 
 ## 📦 Requirements
 

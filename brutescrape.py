@@ -57,7 +57,7 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
                 live.append(r.url)
         if recursion:
             for link in live:
-                check_url(link, wordlist, file_name, filter, recursion)
+                check_url(link, wordlist, file_name, filter, recursion, v)
 
         if file_name:
             with open(file_name, "a") as f:
@@ -67,11 +67,11 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
     return live, status
 
 
-def threads(targets, wordlist, file_name=None, filter=None, workers=4, recursion=None):
+def threads(targets, wordlist, file_name=None, filter=None, workers=4, recursion=None, v=None):
     all_live = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [
-            executor.submit(check_url, u, wordlist, file_name, filter, recursion)
+            executor.submit(check_url, u, wordlist, file_name, filter, recursion, v)
             for u in targets
         ]
         for f in futures:
@@ -132,6 +132,12 @@ if __name__ == "__main__":
         help="number of worker threads for parallel scan",
         type=int,
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        help="print every request with its status code (and redirect target for 3xx)",
+        action="store_true",
+    )
 
     args = parser.parse_args()
     start = time.time()
@@ -164,10 +170,11 @@ if __name__ == "__main__":
                     args.filter,
                     workers=args.threads,
                     recursion=True,
+                    v=args.verbose,
                 )
             else:
                 live, status = check_url(
-                    args.url, args.wordlist, args.file_name, args.filter, recursion=True
+                    args.url, args.wordlist, args.file_name, args.filter, recursion=True, v=args.verbose
                 )
                 all_live = live
                 for u in live:
@@ -181,10 +188,11 @@ if __name__ == "__main__":
                 args.file_name,
                 args.filter,
                 workers=args.threads,
+                v=args.verbose,
             )
         else:
             live, status = check_url(
-                args.url, args.wordlist, args.file_name, args.filter
+                args.url, args.wordlist, args.file_name, args.filter, v=args.verbose
             )
             all_live = live
             for u in live:
