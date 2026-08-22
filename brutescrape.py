@@ -53,7 +53,7 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
                     )
                 else:
                     status.append(r.url)
-            if filter == None and r.status_code == 200:
+            if r.status_code == 200:
                 live.append(r.url)
         if recursion:
             for link in live:
@@ -63,12 +63,12 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
             with open(file_name, "a") as f:
                 saved = status if filter else live
                 f.writelines(u + "\n" for u in saved)
-
     print(f"summary for {url}: {report}")
     return live, status
 
 
 def threads(targets, wordlist, file_name=None, filter=None, workers=4, recursion=None):
+    all_live = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [
             executor.submit(check_url, u, wordlist, file_name, filter, recursion)
@@ -76,11 +76,13 @@ def threads(targets, wordlist, file_name=None, filter=None, workers=4, recursion
         ]
         for f in futures:
             found_live, found_status = f.result()
+            all_live.extend(found_live)
             for u in found_live:
                 print(200, u)
             if filter is not None:
                 for u in found_status:
                     print(filter, u)
+    return all_live
 
 
 if __name__ == "__main__":
@@ -104,9 +106,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--crawl",
+        nargs="?",
+        const=True,
+        default=None,
         metavar="FILE",
-        help="read URLs from FILE (saved with -s/--file_name) and print "
-        "the content of each page",
+        help="crawl found URLs and print page content. Use alone (--crawl) "
+        "to crawl scan results, or --crawl FILE to crawl a saved file",
     )
     parser.add_argument(
         "-f",
@@ -144,11 +149,15 @@ if __name__ == "__main__":
         if args.file_name is not None:
             print(f"saving matches to {args.file_name}")
         if args.crawl:
-            print(f"crawling urls from {args.crawl}")
+            if args.crawl is True:
+                print("crawling scan results")
+            else:
+                print(f"crawling urls from {args.crawl}")
 
+        all_live = []
         if args.recursion:
             if args.threads:
-                threads(
+                all_live = threads(
                     [args.url],
                     args.wordlist,
                     args.file_name,
@@ -157,11 +166,16 @@ if __name__ == "__main__":
                     recursion=True,
                 )
             else:
-                check_url(
+                live, status = check_url(
                     args.url, args.wordlist, args.file_name, args.filter, recursion=True
                 )
+                all_live = live
+                for u in live:
+                    print(200, u)
+                for u in status:
+                    print(args.filter, u)
         elif args.threads:
-            threads(
+            all_live = threads(
                 [args.url],
                 args.wordlist,
                 args.file_name,
@@ -172,14 +186,19 @@ if __name__ == "__main__":
             live, status = check_url(
                 args.url, args.wordlist, args.file_name, args.filter
             )
+            all_live = live
             for u in live:
                 print(200, u)
             for u in status:
                 print(args.filter, u)
 
         if args.crawl:
-            crawl_file(args.crawl)
-
+            if args.crawl is True:
+                crawl_file(all_live)
+            else:
+                with open(args.crawl) as f:
+                    urls = [line.strip() for line in f if line.strip()]
+                crawl_file(urls)
         end = time.time()
         print(f"time taken: {end - start:.2f}s")
 
