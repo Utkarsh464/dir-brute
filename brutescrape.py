@@ -26,19 +26,31 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
     url = url_normalise(url)
     live = []
     status = []
+    report = {"2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0}
+
     with open(wordlist, "r") as wl:
         for word in wl:
-            redirect_url=None
+            redirect_url = None
             r = requests.get((url + word).strip(), timeout=10, allow_redirects=False)
+            if 200 <= r.status_code < 300:
+                report["2xx"] += 1
+            elif 300 <= r.status_code < 400:
+                report["3xx"] += 1
+            elif 400 <= r.status_code < 500:
+                report["4xx"] += 1
+            elif 500 <= r.status_code < 600:
+                report["5xx"] += 1
             if r.status_code in (301, 302, 303, 307, 308):
-                redirect_url = r.headers.get('Location')
+                redirect_url = r.headers.get("Location")
             if v:
                 if redirect_url:
                     print(f"{r.url},{r.status_code} redirected to {redirect_url}")
                 print(f"{r.url} , {r.status_code}")
             if filter and r.status_code == filter:
                 if redirect_url:
-                    status.append(f"{r.url} , {r.status_code} redirected to {redirect_url}")
+                    status.append(
+                        f"{r.url} , {r.status_code} redirected to {redirect_url}"
+                    )
                 else:
                     status.append(r.url)
             if filter == None and r.status_code == 200:
@@ -52,6 +64,7 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
                 saved = status if filter else live
                 f.writelines(u + "\n" for u in saved)
 
+    print(f"summary for {url}: {report}")
     return live, status
 
 
@@ -169,5 +182,6 @@ if __name__ == "__main__":
 
         end = time.time()
         print(f"time taken: {end - start:.2f}s")
+
     except Exception as e:
         print(f"something went wrong: {e}")
