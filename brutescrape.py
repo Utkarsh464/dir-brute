@@ -26,20 +26,22 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
     url = url_normalise(url)
     live = []
     status = []
-    report = {"2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0}
+    report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
 
     with open(wordlist, "r") as wl:
         for word in wl:
             redirect_url = None
             r = requests.get((url + word).strip(), timeout=10, allow_redirects=False)
-            if 200 <= r.status_code < 300:
-                report["2xx"] += 1
-            elif 300 <= r.status_code < 400:
-                report["3xx"] += 1
-            elif 400 <= r.status_code < 500:
-                report["4xx"] += 1
-            elif 500 <= r.status_code < 600:
-                report["5xx"] += 1
+            report["total"] += 1
+            if r.status_code == 200:
+                report["live"] += 1
+            elif r.status_code in (301, 302, 307, 308):
+                report["redirects"] += 1
+            elif r.status_code in (401, 403):
+                report["dead"] += 1
+            elif r.status_code >= 500:
+                report["errors"] += 1
+
             if r.status_code in (301, 302, 303, 307, 308):
                 redirect_url = r.headers.get("Location")
             if v:
@@ -57,32 +59,43 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
                 live.append(r.url)
         if recursion:
             for link in live:
-                check_url(link, wordlist, file_name, filter, recursion, v)
+                _, _, sub_report = check_url(
+                    link, wordlist, file_name, filter, recursion, v
+                )
+                for k in report:
+                    if k in sub_report:
+                        report[k] += sub_report[k]
 
         if file_name:
             with open(file_name, "a") as f:
                 saved = status if filter else live
                 f.writelines(u + "\n" for u in saved)
-    print(f"summary for {url}: {report}")
-    return live, status
+
+    return live, status, report
 
 
-def threads(targets, wordlist, file_name=None, filter=None, workers=4, recursion=None, v=None):
+def threads(
+    targets, wordlist, file_name=None, filter=None, workers=4, recursion=None, v=None
+):
     all_live = []
+    report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [
             executor.submit(check_url, u, wordlist, file_name, filter, recursion, v)
             for u in targets
         ]
         for f in futures:
-            found_live, found_status = f.result()
+            found_live, found_status, f_report = f.result()
             all_live.extend(found_live)
+            for k in report:
+                if k in f_report:
+                    report[k] += f_report[k]
             for u in found_live:
                 print(200, u)
             if filter is not None:
                 for u in found_status:
                     print(filter, u)
-    return all_live
+    return all_live, report
 
 
 if __name__ == "__main__":
@@ -135,7 +148,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         "--verbose",
-        help="print every request with its status code (and redirect target for 3xx)",
+        help="print every request with its status code",
         action="store_true",
     )
 
@@ -161,9 +174,10 @@ if __name__ == "__main__":
                 print(f"crawling urls from {args.crawl}")
 
         all_live = []
+        total_report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
         if args.recursion:
             if args.threads:
-                all_live = threads(
+                all_live, scan_report = threads(
                     [args.url],
                     args.wordlist,
                     args.file_name,
@@ -173,16 +187,24 @@ if __name__ == "__main__":
                     v=args.verbose,
                 )
             else:
-                live, status = check_url(
-                    args.url, args.wordlist, args.file_name, args.filter, recursion=True, v=args.verbose
+                live, status, scan_report = check_url(
+                    args.url,
+                    args.wordlist,
+                    args.file_name,
+                    args.filter,
+                    recursion=True,
+                    v=args.verbose,
                 )
                 all_live = live
                 for u in live:
                     print(200, u)
                 for u in status:
                     print(args.filter, u)
+            for k in total_report:
+                if k in scan_report:
+                    total_report[k] += scan_report[k]
         elif args.threads:
-            all_live = threads(
+            all_live, scan_report = threads(
                 [args.url],
                 args.wordlist,
                 args.file_name,
@@ -190,16 +212,37 @@ if __name__ == "__main__":
                 workers=args.threads,
                 v=args.verbose,
             )
+            for k in total_report:
+                if k in scan_report:
+                    total_report[k] += scan_report[k]
         else:
-            live, status = check_url(
-                args.url, args.wordlist, args.file_name, args.filter, v=args.verbose
+            live, status, scan_report = check_url(
+                args.url,
+                args.wordlist,
+                args.file_name,
+                args.filter,
+                v=args.verbose,
             )
             all_live = live
             for u in live:
                 print(200, u)
             for u in status:
                 print(args.filter, u)
+            for k in total_report:
+                if k in scan_report:
+                    total_report[k] += scan_report[k]
 
+        print("=" * 60)
+        print(
+            f"scan complete: {total_report['live']} found, "
+            f"{total_report['redirects']} redirects, "
+            f"{total_report['dead']} dead, "
+            f"{total_report['errors']} errors"
+        )
+        print("=" * 60)
+
+        print("crawling found URLs")
+        print("=" * 60)
         if args.crawl:
             if args.crawl is True:
                 crawl_file(all_live)
@@ -207,6 +250,7 @@ if __name__ == "__main__":
                 with open(args.crawl) as f:
                     urls = [line.strip() for line in f if line.strip()]
                 crawl_file(urls)
+
         end = time.time()
         print(f"time taken: {end - start:.2f}s")
 

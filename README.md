@@ -54,6 +54,7 @@
 - **`--crawl`** — prints the contents of every found page. Use it alone to crawl the scan's own results, or pass a file (`--crawl urls.txt`) to crawl a saved list
   - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for threaded recursion
 - **Timed** — prints total elapsed time at the end
+- **Scan summary** — prints a one-line tally at the end (`scan complete: X found, Y redirects, Z dead, W errors`), wrapped in `====` separators
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
 
 ## 🧰 Tools
@@ -70,6 +71,20 @@
 git clone https://github.com/Utkarsh464/dir-brute.git
 cd dir-brute
 pip install -r requirements.txt
+```
+
+## 🧪 Local demo
+
+A self-contained test server and wordlist ship in the repo, so you can exercise every mode without a real target:
+
+| File                                     | Role                                                                                                                                                 |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`demo_server.py`](demo_server.py)       | Local app on `http://127.0.0.1:8080` with ~50 routes across every status code (200/301/302/307/308/401/403/500) plus random errors for unknown paths |
+| [`demo_wordlist.txt`](demo_wordlist.txt) | ~170 paths that hit all of the above                                                                                                                 |
+
+```bash
+python demo_server.py 8080          # terminal 1
+python brutescrape.py http://127.0.0.1:8080/ demo_wordlist.txt -t 10 -v -R --crawl   # terminal 2
 ```
 
 ## 🛠️ Usage
