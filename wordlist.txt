@@ -1,0 +1,12 @@
+admin
+users
+profile
+api
+v1
+login
+secret
+forbidden
+dashboard
+old
+temp
+perm

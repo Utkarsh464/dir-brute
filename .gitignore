@@ -1,14 +1,2 @@
-__pycache__/
-*.py[cod]
-*.so
-.env
-.venv
-env/
-venv/
-.DS_Store
-.vscode/
-.idea/
-*.egg-info/
-dist/
-build/
-*.pdf
+# scan output from -s
+found.txt

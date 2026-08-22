@@ -22,15 +22,25 @@ def url_normalise(url):
     return url
 
 
-def check_url(url, wordlist, file_name=None, filter=None, recursion=None):
+def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None):
     url = url_normalise(url)
     live = []
     status = []
     with open(wordlist, "r") as wl:
         for word in wl:
-            r = requests.get((url + word).strip(), timeout=10)
+            redirect_url=None
+            r = requests.get((url + word).strip(), timeout=10, allow_redirects=False)
+            if r.status_code in (301, 302, 303, 307, 308):
+                redirect_url = r.headers.get('Location')
+            if v:
+                if redirect_url:
+                    print(f"{r.url},{r.status_code} redirected to {redirect_url}")
+                print(f"{r.url} , {r.status_code}")
             if filter and r.status_code == filter:
-                status.append(r.url)
+                if redirect_url:
+                    status.append(f"{r.url} , {r.status_code} redirected to {redirect_url}")
+                else:
+                    status.append(r.url)
             if filter == None and r.status_code == 200:
                 live.append(r.url)
         if recursion:

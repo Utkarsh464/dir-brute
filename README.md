@@ -46,7 +46,7 @@
 ## ✨ Features
 
 - **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
-  - **Recursive** — `-R` re-scans every `200` URL it finds, descending into each
+  - **Recursive** — `-R` re-scans every `200` URL it finds, descending into each (no depth limit)
 - **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
@@ -108,14 +108,19 @@ Every response URL is written (only the `-f` status code when one is set) — on
 ### Recursive brute
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -R
+python brutescrape.py http://example.com/ wordlist.txt -R -s found.txt
+# console (top level only):
 # 200 http://example.com/admin
-# 200 http://example.com/admin/users
 # 200 http://example.com/login
+# found.txt (nested paths discovered by recursion):
+# http://example.com/admin/users
+# http://example.com/admin/users/profile
 # ...
 ```
 
-Every `200` URL gets re-scanned against the wordlist, descending into each, so you can find nested directories too.
+Every `200` URL gets re-scanned against the wordlist, descending into each level with **no depth limit**. Deeper levels are written to the `-s` file when given; only the top level prints to the console. Combine with `-t N` for threaded recursion.
+
+> **Redirects are not followed.** A `301`/`302`/`307`/`308` is reported as-is (with its `Location` header shown when you use `-f`), so `-f 301` and friends match correctly instead of collapsing to the target.
 
 ### Crawl saved URLs
 
@@ -135,7 +140,7 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
     | `wordlist`        | Path to the wordlist — one directory to check per line        |
 
 | `-f, --filter CODE` | Only print responses matching this status code |
-| `-R, --recursion` | Re-scan every `200` URL found, descending into each |
+| `-R, --recursion` | Re-scan every `200` URL found, descending into each (no depth limit) |
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
 | `-t, --threads N` | Run N requests in parallel; combine with `-R` for threaded recursion |
 | `--crawl FILE` | Read URLs from a file saved with `-s` and print page contents |
