@@ -1,55 +1,63 @@
 import argparse
+import sys
+import requests
 import time
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from helpers import correct_code, matches_code, crawl_file, url_normalise, check_url
+from helpers import crawl_file
 
 
-def try_url(base_url, word, code, lock, saved_file):
-    """Single request — runs inside thread pool."""
-    try:
-        r = check_url(base_url + word.strip())
-        if code is None or matches_code(r.status_code, code):
-            print(r.status_code, r.url)
-            if saved_file:
-                with lock:
-                    saved_file.write(r.url + "\n")
-            return r
-    except Exception:
-        print("request failed")
-    return None
+def correct_code(code):
+    supported = [200, 301, 302, 307, 308, 401, 403]
+    if code not in supported:
+        raise ValueError(f"Unsupported status code. Choose from: {supported}")
+    return code
 
 
-def default_brute(
-    url, wordlist, code=None, file_name=None, recursion=False, max_workers=10
-):
+def url_normalise(url):
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "http://" + url
+    if not url.endswith("/"):
+        url += "/"
+    url = url.strip()
+    return url
+
+
+def check_url(url, wordlist, file_name=None, filter=None, recursion=None):
     url = url_normalise(url)
-    saved = None
-    if file_name:
-        saved = open(file_name, "w")
+    live = []
+    status = []
+    with open(wordlist, "r") as wl:
+        for word in wl:
+            r = requests.get((url + word).strip(), timeout=10)
+            if filter and r.status_code == filter:
+                status.append(r.url)
+            if filter == None and r.status_code == 200:
+                live.append(r.url)
+        if recursion:
+            for link in live:
+                check_url(link, wordlist, file_name, filter, recursion)
 
-    with open(wordlist) as f:
-        words = f.readlines()
+        if file_name:
+            with open(file_name, "a") as f:
+                saved = status if filter else live
+                f.writelines(u + "\n" for u in saved)
 
-    lock = threading.Lock()
-    found_200s = []
+    return live, status
 
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = [pool.submit(try_url, url, word, code, lock, saved) for word in words]
-        for future in futures:
-            result = future.result()
-            if result and result.status_code == 200:
-                found_200s.append(result.url)
 
-    if saved:
-        saved.close()
-        print(f"urls saved in {file_name}")
-
-    if recursion:
-        for found_url in found_200s:
-            default_brute(
-                found_url, wordlist, code=None, recursion=False, max_workers=max_workers
-            )
+def threads(targets, wordlist, file_name=None, filter=None, workers=4, recursion=None):
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(check_url, u, wordlist, file_name, filter, recursion)
+            for u in targets
+        ]
+        for f in futures:
+            found_live, found_status = f.result()
+            for u in found_live:
+                print(200, u)
+            if filter is not None:
+                for u in found_status:
+                    print(filter, u)
 
 
 if __name__ == "__main__":
@@ -68,7 +76,7 @@ if __name__ == "__main__":
         help="target base URL, e.g. http://example.com/",
     )
     parser.add_argument(
-        "wordlist_path",
+        "wordlist",
         help="path to the wordlist file, one directory to check per line",
     )
     parser.add_argument(
@@ -93,38 +101,63 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t",
         "--threads",
-        help="number of concurrent threads (default 10)",
+        help="number of worker threads for parallel scan",
         type=int,
-        default=10,
     )
 
     args = parser.parse_args()
     start = time.time()
-    print(f"starting brute force on {args.url}")
-    if args.filter is not None:
-        print(f"filtering for status code {args.filter}")
-    if args.file_name is not None:
-        print(f"saving matches to {args.file_name}")
-    if args.crawl:
-        print(f"crawling urls from {args.crawl}")
-    if args.filter is not None:
-        try:
-            correct_code(args.filter)
-        except ValueError as e:
-            print(e)
-
     try:
-        default_brute(
-            args.url,
-            args.wordlist_path,
-            args.filter,
-            args.file_name,
-            args.recursion,
-            args.threads,
-        )
+        if args.filter is not None:
+            try:
+                correct_code(args.filter)
+            except ValueError as e:
+                print(e)
+                sys.exit(1)
+
+        print(f"starting brute force on {args.url}")
+        if args.filter is not None:
+            print(f"filtering for status code {args.filter}")
+        if args.file_name is not None:
+            print(f"saving matches to {args.file_name}")
+        if args.crawl:
+            print(f"crawling urls from {args.crawl}")
+
+        if args.recursion:
+            if args.threads:
+                threads(
+                    [args.url],
+                    args.wordlist,
+                    args.file_name,
+                    args.filter,
+                    workers=args.threads,
+                    recursion=True,
+                )
+            else:
+                check_url(
+                    args.url, args.wordlist, args.file_name, args.filter, recursion=True
+                )
+        elif args.threads:
+            threads(
+                [args.url],
+                args.wordlist,
+                args.file_name,
+                args.filter,
+                workers=args.threads,
+            )
+        else:
+            live, status = check_url(
+                args.url, args.wordlist, args.file_name, args.filter
+            )
+            for u in live:
+                print(200, u)
+            for u in status:
+                print(args.filter, u)
+
         if args.crawl:
             crawl_file(args.crawl)
+
         end = time.time()
         print(f"time taken: {end - start:.2f}s")
     except Exception as e:
-        print("something went wrong")
+        print(f"something went wrong: {e}")

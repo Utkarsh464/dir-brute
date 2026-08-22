@@ -46,21 +46,22 @@
 ## ✨ Features
 
 - **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
-- **Recursive** — `-R` re-scans every `200` URL it finds, one level deep
+  - **Recursive** — `-R` re-scans every `200` URL it finds, descending into each
 - **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — reads a saved URL list and prints the contents of each page
-- **Concurrent** — `-t N` runs N requests in parallel (default 10); brute-force first, then crawl the saved list
+  - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for threaded recursion
 - **Timed** — prints total elapsed time at the end
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
 
 ## 🧰 Tools
 
-| File                               | Role                                                                                 | How to run                   |
-| ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------- |
-| [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python brutescrape.py`      |
-| [`helpers.py`](helpers.py)         | Status-code validation, response matching, and the crawler                           | imported by `brutescrape.py` |
+| File                               | Role                                                                                 | How to run              |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | ----------------------- |
+| [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python brutescrape.py` |
+
+    | [`helpers.py`](helpers.py)         | Status-code validation and the crawler                                                  | imported by `brutescrape.py` |
 
 ## 🚀 Quick Start
 
@@ -114,7 +115,7 @@ python brutescrape.py http://example.com/ wordlist.txt -R
 # ...
 ```
 
-Every `200` URL gets re-scanned against the wordlist, one level deep, so you can find nested directories too. Note: the recursive pass currently ignores `-f` and `-s` — it always runs unfiltered.
+Every `200` URL gets re-scanned against the wordlist, descending into each, so you can find nested directories too.
 
 ### Crawl saved URLs
 
@@ -127,15 +128,17 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
 
 ### Options
 
-| Argument               | Description                                                   |
-| ---------------------- | ------------------------------------------------------------- |
-| `url`                  | Target base URL, e.g. `http://example.com/`                   |
-| `wordlist_path`        | Path to the wordlist — one directory to check per line        |
-| `-f, --filter CODE`    | Only print responses matching this status code                |
-| `-R, --recursion`      | Re-scan every `200` URL found, one level deep                 |
-| `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line                    |
-| `-t, --threads N`      | Run N requests in parallel (default 10)                       |
-| `--crawl FILE`         | Read URLs from a file saved with `-s` and print page contents |
+| Argument | Description                                 |
+| -------- | ------------------------------------------- |
+| `url`    | Target base URL, e.g. `http://example.com/` |
+
+    | `wordlist`        | Path to the wordlist — one directory to check per line        |
+
+| `-f, --filter CODE` | Only print responses matching this status code |
+| `-R, --recursion` | Re-scan every `200` URL found, descending into each |
+| `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
+| `-t, --threads N` | Run N requests in parallel; combine with `-R` for threaded recursion |
+| `--crawl FILE` | Read URLs from a file saved with `-s` and print page contents |
 
 ## 📦 Requirements
 
