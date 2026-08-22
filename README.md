@@ -50,7 +50,7 @@
 - **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
-- **`--crawl`** — reads a saved URL list and prints the contents of each page
+- **`--crawl`** — prints the contents of every found page. Use it alone to crawl the scan's own results, or pass a file (`--crawl urls.txt`) to crawl a saved list
   - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for threaded recursion
 - **Timed** — prints total elapsed time at the end
 - **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
@@ -73,7 +73,7 @@ pip install -r requirements.txt
 
 ## 🛠️ Usage
 
-> All examples assume a wordlist with one path per line — e.g. `admin`, `login`, `api`.
+> All examples assume a wordlist with one path per line — e.g. `admin`, `login`, `api`. A ready-to-use list is included as [`common.txt`](common.txt) (4,751 paths from [SecLists](https://github.com/danielmiessler/SecLists)), or bring your own.
 
 ### Brute-force directories
 
@@ -122,14 +122,29 @@ Every `200` URL gets re-scanned against the wordlist, descending into each level
 
 > **Redirects are not followed.** A `301`/`302`/`307`/`308` is reported as-is (with its `Location` header shown when you use `-f`), so `-f 301` and friends match correctly instead of collapsing to the target.
 
-### Crawl saved URLs
+### Crawl found pages
+
+`--crawl` works two ways:
+
+**On the scan's own results** — no file needed, just add `--crawl`:
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
+python brutescrape.py http://example.com/ wordlist.txt --crawl
 # the content of http://example.com/admin
 # <!doctype html>
 # <html>...
 ```
+
+**On a saved list** — pass the file you wrote with `-s`:
+
+```bash
+python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt --crawl live_urls.txt
+# the content of http://example.com/admin
+# <!doctype html>
+# <html>...
+```
+
+Combine with `-R` or `-t` to crawl a larger set of discovered pages.
 
 ### Options
 
@@ -143,7 +158,7 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl live_urls.txt
 | `-R, --recursion` | Re-scan every `200` URL found, descending into each (no depth limit) |
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
 | `-t, --threads N` | Run N requests in parallel; combine with `-R` for threaded recursion |
-| `--crawl FILE` | Read URLs from a file saved with `-s` and print page contents |
+| `--crawl [FILE]` | Print page contents of found URLs. No file = crawl the scan results; with a file = crawl that saved list |
 
 ## 📦 Requirements
 
