@@ -73,20 +73,6 @@ cd dir-brute
 pip install -r requirements.txt
 ```
 
-## 🧪 Local demo
-
-A self-contained test server and wordlist ship in the repo, so you can exercise every mode without a real target:
-
-| File                                     | Role                                                                                                                                                 |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`demo_server.py`](demo_server.py)       | Local app on `http://127.0.0.1:8080` with ~50 routes across every status code (200/301/302/307/308/401/403/500) plus random errors for unknown paths |
-| [`demo_wordlist.txt`](demo_wordlist.txt) | ~170 paths that hit all of the above                                                                                                                 |
-
-```bash
-python demo_server.py 8080          # terminal 1
-python brutescrape.py http://127.0.0.1:8080/ demo_wordlist.txt -t 10 -v -R --crawl   # terminal 2
-```
-
 ## 🛠️ Usage
 
 > All examples assume a wordlist with one path per line — e.g. `admin`, `login`, `api`. A ready-to-use list is included as [`common.txt`](common.txt) (4,751 paths from [SecLists](https://github.com/danielmiessler/SecLists)), or bring your own.
