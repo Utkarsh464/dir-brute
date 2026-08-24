@@ -27,49 +27,63 @@ def check_url(url, wordlist, file_name=None, filter=None, recursion=None, v=None
     live = []
     status = []
     report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
-
-    with open(wordlist, "r") as wl:
-        for word in wl:
-            redirect_url = None
-            r = requests.get((url + word).strip(), timeout=10, allow_redirects=False)
-            report["total"] += 1
-            if r.status_code == 200:
-                report["live"] += 1
-            elif r.status_code in (301, 302, 307, 308):
-                report["redirects"] += 1
-            elif r.status_code in (401, 403):
-                report["dead"] += 1
-            elif r.status_code >= 500:
-                report["errors"] += 1
-
-            if r.status_code in (301, 302, 303, 307, 308):
-                redirect_url = r.headers.get("Location")
-            if v:
-                if redirect_url:
-                    print(f"{r.url},{r.status_code} redirected to {redirect_url}")
-                print(f"{r.url} , {r.status_code}")
-            if filter and r.status_code == filter:
-                if redirect_url:
-                    status.append(
-                        f"{r.url} , {r.status_code} redirected to {redirect_url}"
+    try:
+        with open(wordlist, "r") as wl:
+            for word in wl:
+                redirect_url = None
+                try:
+                    r = requests.get(
+                        (url + word).strip(), timeout=10, allow_redirects=False
                     )
-                else:
-                    status.append(r.url)
-            if r.status_code == 200:
-                live.append(r.url)
-        if recursion:
-            for link in live:
-                _, _, sub_report = check_url(
-                    link, wordlist, file_name, filter, recursion, v
-                )
-                for k in report:
-                    if k in sub_report:
-                        report[k] += sub_report[k]
+                except Exception as e:
+                    continue
 
-        if file_name:
+                report["total"] += 1
+                if r.status_code == 200:
+                    report["live"] += 1
+                elif r.status_code in (301, 302, 307, 308):
+                    report["redirects"] += 1
+                elif r.status_code in (401, 403):
+                    report["dead"] += 1
+                elif r.status_code >= 500:
+                    report["errors"] += 1
+
+                if r.status_code in (301, 302, 303, 307, 308):
+                    redirect_url = r.headers.get("Location")
+                if v:
+                    if redirect_url:
+                        print(f"{r.url},{r.status_code} redirected to {redirect_url}")
+                    print(f"{r.url} , {r.status_code}")
+                if filter and r.status_code == filter:
+                    if redirect_url:
+                        status.append(
+                            f"{r.url} , {r.status_code} redirected to {redirect_url}"
+                        )
+                    else:
+                        status.append(r.url)
+                if r.status_code == 200:
+                    live.append(r.url)
+            if recursion:
+                for link in live:
+                    _, _, sub_report = check_url(
+                        link, wordlist, file_name, filter, recursion, v
+                    )
+                    for k in report:
+                        if k in sub_report:
+                            report[k] += sub_report[k]
+    except KeyboardInterrupt:
+        print("\nscan interrupted")
+        return live, status, report
+    except Exception as e:
+        print(e)
+
+    if file_name:
+        try:
             with open(file_name, "a") as f:
                 saved = status if filter else live
                 f.writelines(u + "\n" for u in saved)
+        except Exception as e:
+            print(e)
 
     return live, status, report
 
@@ -241,18 +255,24 @@ if __name__ == "__main__":
         )
         print("=" * 60)
 
-        print("crawling found URLs")
-        print("=" * 60)
         if args.crawl:
+            print("crawling found URLs")
+            print("=" * 60)
             if args.crawl is True:
                 crawl_file(all_live)
             else:
-                with open(args.crawl) as f:
-                    urls = [line.strip() for line in f if line.strip()]
-                crawl_file(urls)
+                try:
+                    with open(args.crawl) as f:
+                        urls = [line.strip() for line in f if line.strip()]
+                    crawl_file(urls)
+                except Exception as e:
+                    print(e)
 
         end = time.time()
         print(f"time taken: {end - start:.2f}s")
 
+    except KeyboardInterrupt:
+        print("\nscan interrupted")
+        sys.exit(1)
     except Exception as e:
         print(f"something went wrong: {e}")
