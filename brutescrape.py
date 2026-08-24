@@ -3,7 +3,7 @@ import sys
 import requests
 import time
 from concurrent.futures import ThreadPoolExecutor
-from helpers import crawl_file
+from crawler import crawl_file
 
 
 def correct_code(code):

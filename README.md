@@ -63,7 +63,7 @@
 | ---------------------------------- | ------------------------------------------------------------------------------------ | ----------------------- |
 | [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python brutescrape.py` |
 
-    | [`helpers.py`](helpers.py)         | Status-code validation and the crawler                                                  | imported by `brutescrape.py` |
+    | [`crawler.py`](crawler.py)         | Page crawler used by `--crawl`                                                          | imported by `brutescrape.py` |
 
 ## 🚀 Quick Start
 
