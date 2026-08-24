@@ -24,7 +24,7 @@
 ## How it works
 
 ```
-         wordlist.txt
+         common.txt
               │
               ▼
       ┌─────────────────┐
@@ -80,7 +80,7 @@ pip install -r requirements.txt
 ### Brute-force directories
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt
+python brutescrape.py http://example.com/ common.txt
 # 200 http://example.com/admin
 # 301 http://example.com/login
 # 200 http://example.com/api
@@ -93,7 +93,7 @@ python brutescrape.py http://example.com/ wordlist.txt
 Add `-v` to see every request, not just the hits:
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -v
+python brutescrape.py http://example.com/ common.txt -v
 # http://example.com/.bash_history , 404
 # http://example.com/admin , 200
 # http://example.com/login , 301 redirected to /login.php
@@ -103,7 +103,7 @@ python brutescrape.py http://example.com/ wordlist.txt -v
 ### Filter by status code
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -f 200
+python brutescrape.py http://example.com/ common.txt -f 200
 # 200 http://example.com/admin
 # 200 http://example.com/api
 ```
@@ -113,7 +113,7 @@ Only the status codes you ask for are printed — useful for finding live paths 
 ### Save URLs
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt
+python brutescrape.py http://example.com/ common.txt -s live_urls.txt
 # all urls are saved in live_urls.txt
 ```
 
@@ -122,7 +122,7 @@ Every response URL is written (only the `-f` status code when one is set) — on
 ### Recursive brute
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -R -s found.txt
+python brutescrape.py http://example.com/ common.txt -R -s found.txt
 # console (top level only):
 # 200 http://example.com/admin
 # 200 http://example.com/login
@@ -143,7 +143,7 @@ Every `200` URL gets re-scanned against the wordlist, descending into each level
 **On the scan's own results** — no file needed, just add `--crawl`:
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt --crawl
+python brutescrape.py http://example.com/ common.txt --crawl
 # the content of http://example.com/admin
 # <!doctype html>
 # <html>...
@@ -152,7 +152,7 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl
 **On a saved list** — pass the file you wrote with `-s`:
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt --crawl live_urls.txt
+python brutescrape.py http://example.com/ common.txt -s live_urls.txt --crawl live_urls.txt
 # the content of http://example.com/admin
 # <!doctype html>
 # <html>...
