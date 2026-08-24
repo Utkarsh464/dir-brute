@@ -1,14 +1,9 @@
-import requests
+from bs4 import BeautifulSoup
 
 
-def crawl_file(live, crawl_save=None):
-    for url in live:
-        try:
-            r = requests.get(url.strip(), timeout=10)
-        except requests.RequestException as e:
-            print(f"could not fetch {url}: {e}")
-            continue
-        print(f"content of {r.url}, {r.text}")
-        if crawl_save:
-            with open(crawl_save, "a") as cs:
-                cs.writelines(f"content of {r.url} , {r.text}")
+def crawl(name, html):
+    soup = BeautifulSoup(html, "html.parser")
+    for link in soup.find_all("a"):
+        href = link.get("href")
+        if href:
+            print(f"link in {name}: {href}")
