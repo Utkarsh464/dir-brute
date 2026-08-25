@@ -22,42 +22,56 @@ def url_normalise(url):
     return url
 
 
+def fetch_url(url, timeout=10):
+    try:
+        r = requests.get(url, timeout=timeout, allow_redirects=False)
+        return r
+    except Exception:
+        return None
+
+
 def check_url(
-    url, wordlist, file_name=None, filter=None, recursion=None, v=None, crawl=None
+    url,
+    wordlist,
+    file_name=None,
+    filter=None,
+    recursion=None,
+    v=None,
+    crawl=None,
 ):
     url = url_normalise(url)
     live = []
     status = []
     report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
+
     try:
         with open(wordlist, "r") as wl:
             for word in wl:
-                redirect_url = None
-                try:
-                    r = requests.get(
-                        (url + word).strip(), timeout=10, allow_redirects=False
-                    )
-                except Exception:
+                r = fetch_url(url + word)
+                if r is None:
                     continue
 
                 report["total"] += 1
+                redirect_url = None
+
                 if r.status_code == 200:
                     report["live"] += 1
+                    live.append(r.url)
                     if crawl:
                         crawl(r.url, r.text)
                 elif r.status_code in (301, 302, 303, 307, 308):
                     report["redirects"] += 1
+                    redirect_url = r.headers.get("Location")
                 elif r.status_code in (401, 403):
                     report["dead"] += 1
                 elif r.status_code >= 500:
                     report["errors"] += 1
 
-                if r.status_code in (301, 302, 303, 307, 308):
-                    redirect_url = r.headers.get("Location")
                 if v:
                     if redirect_url:
                         print(f"{r.url}, {r.status_code} redirected to {redirect_url}")
                     print(f"{r.url} , {r.status_code}")
+
                 if filter is not None and r.status_code == filter:
                     if redirect_url:
                         status.append(
@@ -65,16 +79,21 @@ def check_url(
                         )
                     else:
                         status.append(r.url)
-                if r.status_code == 200:
-                    live.append(r.url)
+
             if recursion:
                 for link in live:
-                    _, _, sub_report = check_url(
-                        link, wordlist, file_name, filter, recursion, v, crawl
+                    _, _, sub = check_url(
+                        link,
+                        wordlist,
+                        file_name,
+                        filter,
+                        recursion,
+                        v,
+                        crawl,
                     )
                     for k in report:
-                        if k in sub_report:
-                            report[k] += sub_report[k]
+                        if k in sub:
+                            report[k] += sub[k]
     except KeyboardInterrupt:
         print("\nscan interrupted")
         return live, status, report
@@ -130,19 +149,12 @@ if __name__ == "__main__":
         description="Brute-force directories on a target URL from a wordlist, "
         "optionally save matching URLs and crawl their contents."
     )
+    parser.add_argument("url", help="target base URL, e.g. http://example.com/")
     parser.add_argument(
-        "--file_name",
-        "-s",
-        metavar="FILE",
-        help="save matching URLs to FILE, one per line",
+        "wordlist", help="path to the wordlist file, one directory to check per line"
     )
     parser.add_argument(
-        "url",
-        help="target base URL, e.g. http://example.com/",
-    )
-    parser.add_argument(
-        "wordlist",
-        help="path to the wordlist file, one directory to check per line",
+        "-s", "--file_name", metavar="FILE", help="save matching URLs to FILE"
     )
     parser.add_argument(
         "--crawl",
@@ -150,38 +162,26 @@ if __name__ == "__main__":
         const=True,
         default=None,
         metavar="FILE",
-        help="crawl found URLs and print page content. Use alone (--crawl) "
-        "to crawl scan results, or --crawl FILE to crawl a saved file",
+        help="crawl found URLs. Use alone (--crawl) to crawl scan results, "
+        "or --crawl FILE to crawl a saved file",
     )
     parser.add_argument(
-        "-f",
-        "--filter",
-        help="status code to filter",
-        type=int,
-    )
-
-    parser.add_argument(
-        "-R",
-        "--recursion",
-        help="recursive brute",
-        action="store_true",
+        "-f", "--filter", type=int, help="only show results with this status code"
     )
     parser.add_argument(
-        "-t",
-        "--threads",
-        help="number of worker threads for parallel scan",
-        type=int,
+        "-R", "--recursion", action="store_true", help="recurse into found directories"
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
-        help="print every request with its status code",
-        action="store_true",
+        "-t", "--threads", type=int, help="number of worker threads for parallel scan"
     )
-
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="print every request"
+    )
     args = parser.parse_args()
+
     start = time.time()
     try:
+        # make sure the filter value is one we actually support
         if args.filter is not None:
             try:
                 correct_code(args.filter)
@@ -202,6 +202,7 @@ if __name__ == "__main__":
 
         all_live = []
         total_report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
+
         if args.recursion:
             if args.threads:
                 all_live, scan_report = threads(
@@ -254,6 +255,7 @@ if __name__ == "__main__":
             for u in status:
                 print(args.filter, u)
 
+        # fold the per-scan report into the totals
         for k in total_report:
             if k in scan_report:
                 total_report[k] += scan_report[k]
