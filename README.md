@@ -37,10 +37,10 @@
         ▼                ▼
   only matching    saved URL list
   statuses print
-                        │
-                   --crawl
-                        ▼
-                 page contents
+                         │
+                    --crawl
+                         ▼
+                  page links (+ text)
 ```
 
 ## ✨ Features
@@ -51,11 +51,12 @@
 - **Verbose** — `-v` prints every request with its status code (and the redirect target for 3xx), so you see the full probe stream instead of just the hits
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
-- **`--crawl`** — prints the contents of every found page. Use it alone to crawl the scan's own results, or pass a file (`--crawl urls.txt`) to crawl a saved list
+- **`--crawl`** — prints the links found on every `200` page it discovers. Combine with `-R` to crawl deeper, or `-t N` to crawl in parallel
+  - **Text dump** — add `--text` to also print the text content of each crawled page (`--text` implies `--crawl`)
   - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for threaded recursion
 - **Timed** — prints total elapsed time at the end
 - **Scan summary** — prints a one-line tally at the end (`scan complete: X found, Y redirects, Z dead, W errors`), wrapped in `====` separators
-- **Minimal deps** — Python 3.8+ and [`requests`](https://pypi.org/project/requests/), that's it
+- **Minimal deps** — Python 3.8+, [`requests`](https://pypi.org/project/requests/) `>= 2.28`, and [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) for the crawler
 
 ## 🧰 Tools
 
@@ -63,7 +64,7 @@
 | ---------------------------------- | ------------------------------------------------------------------------------------ | ----------------------- |
 | [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python brutescrape.py` |
 
-    | [`crawler.py`](crawler.py)         | Page crawler used by `--crawl`                                                          | imported by `brutescrape.py` |
+    | [`crawler.py`](crawler.py)         | Page crawler used by `--crawl` / `--text`                                               | imported by `brutescrape.py` |
 
 ## 🚀 Quick Start
 
@@ -138,24 +139,20 @@ Every `200` URL gets re-scanned against the wordlist, descending into each level
 
 ### Crawl found pages
 
-`--crawl` works two ways:
-
-**On the scan's own results** — no file needed, just add `--crawl`:
+Add `--crawl` to print the links found on every `200` page the scan discovers:
 
 ```bash
 python brutescrape.py http://example.com/ wordlist.txt --crawl
-# the content of http://example.com/admin
-# <!doctype html>
-# <html>...
+# link in http://example.com/admin: /dashboard
+# link in http://example.com/admin: /settings
 ```
 
-**On a saved list** — pass the file you wrote with `-s`:
+Add `--text` to also print the text content of each crawled page (`--text` implies `--crawl`, so you don't need both flags):
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt --crawl live_urls.txt
-# the content of http://example.com/admin
-# <!doctype html>
-# <html>...
+python brutescrape.py http://example.com/ wordlist.txt --text
+# link in http://example.com/admin: /dashboard
+# text content of http://example.com/admin , Dashboard Welcome to your admin panel ...
 ```
 
 Combine with `-R` or `-t` to crawl a larger set of discovered pages.
@@ -172,13 +169,15 @@ Combine with `-R` or `-t` to crawl a larger set of discovered pages.
 | `-R, --recursion` | Re-scan every `200` URL found, descending into each (no depth limit) |
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
 | `-t, --threads N` | Run N requests in parallel; combine with `-R` for threaded recursion |
-| `--crawl [FILE]` | Print page contents of found URLs. No file = crawl the scan results; with a file = crawl that saved list |
+| `--crawl` | Print the links found on every `200` page the scan discovers |
+| `--text` | Also print the text content of each crawled page (implies `--crawl`) |
 | `-v, --verbose` | Print every request with its status code (and redirect target for 3xx) |
 
 ## 📦 Requirements
 
 - **Python 3.8+**
 - [`requests`](https://pypi.org/project/requests/) `>= 2.28` — pinned in [`requirements.txt`](requirements.txt)
+- [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) `>= 4.11` — used by the crawler (`--crawl` / `--text`)
 
 ## 🤝 Contributing
 
