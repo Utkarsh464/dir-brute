@@ -3,7 +3,7 @@ import sys
 import requests
 import time
 from concurrent.futures import ThreadPoolExecutor
-from crawler import crawl
+from crawler import main_crawl
 
 
 def correct_code(code):
@@ -38,6 +38,7 @@ def check_url(
     recursion=None,
     v=None,
     crawl=None,
+    text=None,
 ):
     url = url_normalise(url)
     live = []
@@ -58,7 +59,7 @@ def check_url(
                     report["live"] += 1
                     live.append(r.url)
                     if crawl:
-                        crawl(r.url, r.text)
+                        main_crawl(r, text)
                 elif r.status_code in (301, 302, 303, 307, 308):
                     report["redirects"] += 1
                     redirect_url = r.headers.get("Location")
@@ -90,6 +91,7 @@ def check_url(
                         recursion,
                         v,
                         crawl,
+                        text,
                     )
                     for k in report:
                         if k in sub:
@@ -120,13 +122,14 @@ def threads(
     recursion=None,
     v=None,
     crawl=None,
+    text=None,
 ):
     all_live = []
     report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [
             executor.submit(
-                check_url, u, wordlist, file_name, filter, recursion, v, crawl
+                check_url, u, wordlist, file_name, filter, recursion, v, crawl, text
             )
             for u in targets
         ]
@@ -161,9 +164,8 @@ if __name__ == "__main__":
         nargs="?",
         const=True,
         default=None,
-        metavar="FILE",
-        help="crawl found URLs. Use alone (--crawl) to crawl scan results, "
-        "or --crawl FILE to crawl a saved file",
+        help="crawl found URLs and print their links. Use alone (--crawl) "
+        "to crawl the scan's own results",
     )
     parser.add_argument(
         "-f", "--filter", type=int, help="only show results with this status code"
@@ -177,7 +179,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="print every request"
     )
+    parser.add_argument(
+        "--text",
+        action="store_true",
+        help="print the text content of each found page (implies --crawl)",
+    )
     args = parser.parse_args()
+
+    # --text implies --crawl: dumping page text only makes sense while crawling
+    crawl = args.crawl or args.text
 
     start = time.time()
     try:
@@ -194,11 +204,11 @@ if __name__ == "__main__":
             print(f"filtering for status code {args.filter}")
         if args.file_name is not None:
             print(f"saving matches to {args.file_name}")
-        if args.crawl:
-            if args.crawl is True:
+        if crawl:
+            if crawl is True:
                 print("crawling scan results")
             else:
-                print(f"crawling urls from {args.crawl}")
+                print(f"crawling urls from {crawl}")
 
         all_live = []
         total_report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
@@ -213,7 +223,8 @@ if __name__ == "__main__":
                     workers=args.threads,
                     recursion=True,
                     v=args.verbose,
-                    crawl=args.crawl,
+                    crawl=crawl,
+                    text=args.text,
                 )
             else:
                 live, status, scan_report = check_url(
@@ -223,7 +234,8 @@ if __name__ == "__main__":
                     args.filter,
                     recursion=True,
                     v=args.verbose,
-                    crawl=args.crawl,
+                    crawl=crawl,
+                    text=args.text,
                 )
                 all_live = live
                 for u in live:
@@ -238,7 +250,8 @@ if __name__ == "__main__":
                 args.filter,
                 workers=args.threads,
                 v=args.verbose,
-                crawl=args.crawl,
+                crawl=crawl,
+                text=args.text,
             )
         else:
             live, status, scan_report = check_url(
@@ -247,7 +260,8 @@ if __name__ == "__main__":
                 args.file_name,
                 args.filter,
                 v=args.verbose,
-                crawl=args.crawl,
+                crawl=crawl,
+                text=args.text,
             )
             all_live = live
             for u in live:
