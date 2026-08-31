@@ -28,7 +28,7 @@
               │
               ▼
       ┌─────────────────┐
-      │  brutescrape.py │   prints: status + URL for every hit
+      │  dir-brute.py │   prints: status + URL for every hit
       └────────┬────────┘
                │
         ┌──────┴───────┐
@@ -60,11 +60,11 @@
 
 ## 🧰 Tools
 
-| File                               | Role                                                                                 | How to run              |
-| ---------------------------------- | ------------------------------------------------------------------------------------ | ----------------------- |
-| [`brutescrape.py`](brutescrape.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python brutescrape.py` |
+| File                           | Role                                                                                 | How to run            |
+| ------------------------------ | ------------------------------------------------------------------------------------ | --------------------- |
+| [`dir-brute.py`](dir-brute.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python dir-brute.py` |
 
-    | [`crawler.py`](crawler.py)         | Page crawler used by `--crawl` / `--text`                                               | imported by `brutescrape.py` |
+    | [`crawler.py`](crawler.py)         | Page crawler used by `--crawl` / `--text`                                               | imported by `dir-brute.py` |
 
 ## 🚀 Quick Start
 
@@ -81,7 +81,7 @@ pip install -r requirements.txt
 ### Brute-force directories
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt
+python dir-brute.py http://example.com/ wordlist.txt
 # 200 http://example.com/admin
 # 301 http://example.com/login
 # 200 http://example.com/api
@@ -94,7 +94,7 @@ python brutescrape.py http://example.com/ wordlist.txt
 Add `-v` to see every request, not just the hits:
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -v
+python dir-brute.py http://example.com/ wordlist.txt -v
 # http://example.com/.bash_history , 404
 # http://example.com/admin , 200
 # http://example.com/login , 301 redirected to /login.php
@@ -104,7 +104,7 @@ python brutescrape.py http://example.com/ wordlist.txt -v
 ### Filter by status code
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -f 200
+python dir-brute.py http://example.com/ wordlist.txt -f 200
 # 200 http://example.com/admin
 # 200 http://example.com/api
 ```
@@ -114,7 +114,7 @@ Only the status codes you ask for are printed — useful for finding live paths 
 ### Save URLs
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -s live_urls.txt
+python dir-brute.py http://example.com/ wordlist.txt -s live_urls.txt
 # all urls are saved in live_urls.txt
 ```
 
@@ -123,7 +123,7 @@ Every response URL is written (only the `-f` status code when one is set) — on
 ### Recursive brute
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt -R -s found.txt
+python dir-brute.py http://example.com/ wordlist.txt -R -s found.txt
 # console (top level only):
 # 200 http://example.com/admin
 # 200 http://example.com/login
@@ -142,7 +142,7 @@ Every `200` URL gets re-scanned against the wordlist, descending into each level
 Add `--crawl` to print the links found on every `200` page the scan discovers:
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt --crawl
+python dir-brute.py http://example.com/ wordlist.txt --crawl
 # link in http://example.com/admin: /dashboard
 # link in http://example.com/admin: /settings
 ```
@@ -150,7 +150,7 @@ python brutescrape.py http://example.com/ wordlist.txt --crawl
 Add `--text` to also print the text content of each crawled page (`--text` implies `--crawl`, so you don't need both flags):
 
 ```bash
-python brutescrape.py http://example.com/ wordlist.txt --text
+python dir-brute.py http://example.com/ wordlist.txt --text
 # link in http://example.com/admin: /dashboard
 # text content of http://example.com/admin , Dashboard Welcome to your admin panel ...
 ```
