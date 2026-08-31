@@ -10,7 +10,7 @@
 
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![MIT License](https://img.shields.io/badge/License-MIT-2ea44f)](LICENSE)
-[![requests ≥ 2.28](https://img.shields.io/badge/requests-%3E%3D%202.28-0A7EA4)](https://pypi.org/project/requests/)
+[![aiohttp ≥ 3.9](https://img.shields.io/badge/aiohttp-%3E%3D%203.9-2C6EBD)](https://pypi.org/project/aiohttp/)
 [![for authorized testing only](https://img.shields.io/badge/for-authorized%20testing-6f42c1)](#disclaimer)
 
 </div>
@@ -53,10 +53,10 @@
 - **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
 - **`--crawl`** — prints the links found on every `200` page it discovers. Combine with `-R` to crawl deeper, or `-t N` to crawl in parallel
   - **Text dump** — add `--text` to also print the text content of each crawled page (`--text` implies `--crawl`)
-  - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for threaded recursion
+  - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for concurrent recursion
 - **Timed** — prints total elapsed time at the end
 - **Scan summary** — prints a one-line tally at the end (`scan complete: X found, Y redirects, Z dead, W errors`), wrapped in `====` separators
-- **Minimal deps** — Python 3.8+, [`requests`](https://pypi.org/project/requests/) `>= 2.28`, and [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) for the crawler
+  - **Minimal deps** — Python 3.8+, [`aiohttp`](https://pypi.org/project/aiohttp/) `>= 3.9`, and [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) for the crawler
 
 ## 🧰 Tools
 
@@ -133,7 +133,7 @@ python brutescrape.py http://example.com/ wordlist.txt -R -s found.txt
 # ...
 ```
 
-Every `200` URL gets re-scanned against the wordlist, descending into each level with **no depth limit**. Deeper levels are written to the `-s` file when given; only the top level prints to the console. Combine with `-t N` for threaded recursion.
+Every `200` URL gets re-scanned against the wordlist, descending into each level with **no depth limit**. Deeper levels are written to the `-s` file when given; only the top level prints to the console. Combine with `-t N` for concurrent recursion.
 
 > **Redirects are not followed.** A `301`/`302`/`307`/`308` is reported as-is (with its `Location` header shown when you use `-f`), so `-f 301` and friends match correctly instead of collapsing to the target.
 
@@ -168,7 +168,7 @@ Combine with `-R` or `-t` to crawl a larger set of discovered pages.
 | `-f, --filter CODE` | Only print responses matching this status code |
 | `-R, --recursion` | Re-scan every `200` URL found, descending into each (no depth limit) |
 | `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
-| `-t, --threads N` | Run N requests in parallel; combine with `-R` for threaded recursion |
+| `-t, --workers N` | Run N requests in parallel; combine with `-R` for concurrent recursion |
 | `--crawl` | Print the links found on every `200` page the scan discovers |
 | `--text` | Also print the text content of each crawled page (implies `--crawl`) |
 | `-v, --verbose` | Print every request with its status code (and redirect target for 3xx) |
@@ -176,7 +176,7 @@ Combine with `-R` or `-t` to crawl a larger set of discovered pages.
 ## 📦 Requirements
 
 - **Python 3.8+**
-- [`requests`](https://pypi.org/project/requests/) `>= 2.28` — pinned in [`requirements.txt`](requirements.txt)
+- [`aiohttp`](https://pypi.org/project/aiohttp/) `>= 3.9` — pinned in [`requirements.txt`](requirements.txt)
 - [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) `>= 4.11` — used by the crawler (`--crawl` / `--text`)
 
 ## 🤝 Contributing
