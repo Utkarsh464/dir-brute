@@ -28,11 +28,11 @@
               │
               ▼
       ┌─────────────────┐
-      │  bustit.py │   prints: status + URL for every hit
+      │  bustit.py      │   prints: status + URL for every hit
       └────────┬────────┘
                │
         ┌──────┴───────┐
-    -f/--filter      -s/--file_name
+    -f/--filter       -s/--file
         │                │
         ▼                ▼
   only matching    saved URL list
@@ -45,34 +45,37 @@
 
 ## ✨ Features
 
-- **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `307`, `308`, `401`, `403`)
-  - **Recursive** — `-R` re-scans every `200` URL it finds, descending into each (no depth limit)
-- **Status-visible output** — every response prints as `status URL`, so dead ends (404s) are easy to spot by eye; there is no automatic 404-detection logic
+- **Concurrent** — `-t N` (default `4`) runs N requests in parallel across every word in a single scan, throttled by a shared `aiohttp` session and connection pool; raise the ceiling, not the wall-time
+- **Filterable** — `-f CODE` shows only responses matching a status code (`200`, `301`, `302`, `303`, `307`, `308`, `401`, `403`, `404`, `500`)
+- **Recursive** — `-R` re-scans every `200` URL it finds, descending up to `--max-depth` levels (default `3`); a `seen` set prevents re-scanning the same path
+- **Status-visible output** — every response prints as `status URL` in verbose mode, so dead ends (404s) are easy to spot by eye
 - **Verbose** — `-v` prints every request with its status code (and the redirect target for 3xx), so you see the full probe stream instead of just the hits
 - **URL normalization** — missing `http://` and trailing `/` are added automatically, so `example.com` works the same as `http://example.com/`
-- **`-s` / `--file_name`** — writes every response URL to a file, one per line; combine with `-f` to save only matching statuses
-- **`--crawl`** — prints the links found on every `200` page it discovers. Combine with `-R` to crawl deeper, or `-t N` to crawl in parallel
+- **`-s` / `--file`** — writes the matching URLs to a file, one per line; with `-f` it saves only that status code
+- **`--crawl`** — prints the links found on every `200` page it discovers; combine with `-R` to crawl deeper
   - **Text dump** — add `--text` to also print the text content of each crawled page (`--text` implies `--crawl`)
-  - **Concurrent** — `-t N` runs N requests in parallel; combine with `-R` for concurrent recursion
 - **Timed** — prints total elapsed time at the end
 - **Scan summary** — prints a one-line tally at the end (`scan complete: X found, Y redirects, Z dead, W errors`), wrapped in `====` separators
   - **Minimal deps** — Python 3.8+, [`aiohttp`](https://pypi.org/project/aiohttp/) `>= 3.9`, and [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) for the crawler
 
 ## 🧰 Tools
 
-| File                     | Role                                                                                 | How to run         |
-| ------------------------ | ------------------------------------------------------------------------------------ | ------------------ |
-| [`bustit.py`](bustit.py) | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `python bustit.py` |
-
-    | [`crawler.py`](crawler.py)         | Page crawler used by `--crawl` / `--text`                                               | imported by `bustit.py` |
+| File                       | Role                                                                                 | How to run                    |
+| -------------------------- | ------------------------------------------------------------------------------------ | ----------------------------- |
+| [`bustit.py`](bustit.py)   | Main entry point — brute-forces directories from a wordlist, optionally saves/crawls | `bustit` / `python bustit.py` |
+| [`crawler.py`](crawler.py) | Page crawler used by `--crawl` / `--text`                                            | imported by `bustit.py`       |
 
 ## 🚀 Quick Start
 
 ```bash
 git clone https://github.com/Utkarsh464/dir-brute.git
 cd dir-brute
-pip install -r requirements.txt
+pip install .
+# or, with uv:
+uv tool install .
 ```
+
+This installs the `bustit` command on your PATH (it works with `pip`/`uv` and Python 3.8+). After that you can run `bustit` from anywhere.
 
 ## 🛠️ Usage
 
@@ -81,30 +84,36 @@ pip install -r requirements.txt
 ### Brute-force directories
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt
+bustit http://example.com/ wordlist.txt
 # 200 http://example.com/admin
 # 301 http://example.com/login
 # 200 http://example.com/api
-# 404 http://example.com/nothere
 # ...
+# ============================================================
+# scan complete: 2 found, 1 redirects, 0 dead, 0 errors
+# ============================================================
+# time taken: 0.42s
 ```
+
+Live `200` pages print as `200 URL`; a compact summary shows the final tally.
 
 ### Verbose mode
 
 Add `-v` to see every request, not just the hits:
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt -v
+bustit http://example.com/ wordlist.txt -v
 # http://example.com/.bash_history , 404
 # http://example.com/admin , 200
 # http://example.com/login , 301 redirected to /login.php
+# http://example.com/nothere , 404
 # ...
 ```
 
 ### Filter by status code
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt -f 200
+bustit http://example.com/ wordlist.txt -f 200
 # 200 http://example.com/admin
 # 200 http://example.com/api
 ```
@@ -114,35 +123,26 @@ Only the status codes you ask for are printed — useful for finding live paths 
 ### Save URLs
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt -s live_urls.txt
+bustit http://example.com/ wordlist.txt -s live_urls.txt
 # all urls are saved in live_urls.txt
 ```
 
-Every response URL is written (only the `-f` status code when one is set) — one URL per line, ready to crawl. Note: without `-f`, `-s` saves _all_ responses, 404s included.
+The matching URLs (`200`s, or the `-f` status code when one is set) are written one per line, ready to crawl.
 
 ### Recursive brute
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt -R -s found.txt
-# console (top level only):
-# 200 http://example.com/admin
-# 200 http://example.com/login
-# found.txt (nested paths discovered by recursion):
-# http://example.com/admin/users
-# http://example.com/admin/users/profile
-# ...
+bustit http://example.com/ wordlist.txt -R --max-depth 5
 ```
 
-Every `200` URL gets re-scanned against the wordlist, descending into each level with **no depth limit**. Deeper levels are written to the `-s` file when given; only the top level prints to the console. Combine with `-t N` for concurrent recursion.
-
-> **Redirects are not followed.** A `301`/`302`/`307`/`308` is reported as-is (with its `Location` header shown when you use `-f`), so `-f 301` and friends match correctly instead of collapsing to the target.
+Every `200` URL gets re-scanned against the wordlist, descending up to `--max-depth` levels (default `3`). A `seen` set stops already-visited paths from being scanned twice.
 
 ### Crawl found pages
 
 Add `--crawl` to print the links found on every `200` page the scan discovers:
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt --crawl
+bustit http://example.com/ wordlist.txt --crawl
 # link in http://example.com/admin: /dashboard
 # link in http://example.com/admin: /settings
 ```
@@ -150,33 +150,30 @@ python bustit.py http://example.com/ wordlist.txt --crawl
 Add `--text` to also print the text content of each crawled page (`--text` implies `--crawl`, so you don't need both flags):
 
 ```bash
-python bustit.py http://example.com/ wordlist.txt --text
+bustit http://example.com/ wordlist.txt --text
 # link in http://example.com/admin: /dashboard
 # text content of http://example.com/admin , Dashboard Welcome to your admin panel ...
 ```
 
-Combine with `-R` or `-t` to crawl a larger set of discovered pages.
-
 ### Options
 
-| Argument | Description                                 |
-| -------- | ------------------------------------------- |
-| `url`    | Target base URL, e.g. `http://example.com/` |
-
-    | `wordlist`        | Path to the wordlist — one directory to check per line        |
-
-| `-f, --filter CODE` | Only print responses matching this status code |
-| `-R, --recursion` | Re-scan every `200` URL found, descending into each (no depth limit) |
-| `-s, --file_name FILE` | Save matching URLs to `FILE`, one per line |
-| `-t, --workers N` | Run N requests in parallel; combine with `-R` for concurrent recursion |
-| `--crawl` | Print the links found on every `200` page the scan discovers |
-| `--text` | Also print the text content of each crawled page (implies `--crawl`) |
-| `-v, --verbose` | Print every request with its status code (and redirect target for 3xx) |
+| Argument            | Description                                                            |
+| ------------------- | ---------------------------------------------------------------------- |
+| `url`               | Target base URL, e.g. `http://example.com/`                            |
+| `wordlist`          | Path to the wordlist — one path to check per line                      |
+| `-f, --filter CODE` | Only print responses matching this status code                         |
+| `-R, --recursion`   | Re-scan every `200` URL found, descending each                         |
+| `--max-depth N`     | Max recursion depth (default `3`)                                      |
+| `-s, --file FILE`   | Save matching URLs to `FILE`, one per line                             |
+| `-t, --workers N`   | Concurrent requests (default `4`)                                      |
+| `--crawl`           | Print links found on every `200` page (boolean)                        |
+| `--text`            | Also print the text content of each crawled page (implies `--crawl`)   |
+| `-v, --verbose`     | Print every request with its status code (and redirect target for 3xx) |
 
 ## 📦 Requirements
 
 - **Python 3.8+**
-- [`aiohttp`](https://pypi.org/project/aiohttp/) `>= 3.9` — pinned in [`requirements.txt`](requirements.txt)
+- [`aiohttp`](https://pypi.org/project/aiohttp/) `>= 3.9` — pinned in `pyproject.toml` / `requirements.txt`
 - [`beautifulsoup4`](https://pypi.org/project/beautifulsoup4/) `>= 4.11` — used by the crawler (`--crawl` / `--text`)
 
 ## 🤝 Contributing
