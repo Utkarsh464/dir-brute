@@ -4,3 +4,6 @@ found.txt
 # python cache
 __pycache__/
 
+# build artifacts from editable install
+*.egg-info/
+

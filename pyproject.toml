@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bustit"
+version = "0.1.0"
+description = "Directory brute-force scanner"
+requires-python = ">=3.8"
+dependencies = [
+    "aiohttp>=3.9",
+    "beautifulsoup4>=4.11",
+]
+
+[project.scripts]
+bustit = "bustit:main"
+
+[tool.setuptools]
+py-modules = ["bustit", "crawler"]

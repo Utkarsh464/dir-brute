@@ -1,25 +1,30 @@
 import argparse
-import sys
 import asyncio
+import inspect
+import sys
 import time
+from urllib.parse import urljoin
+
 import aiohttp
+
 from crawler import main_crawl
 
 
+SUPPORTED_CODES = {200, 301, 302, 303, 307, 308, 401, 403, 404, 500}
+REDIRECT_CODES = {301, 302, 303, 307, 308}
+
+
 def correct_code(code):
-    supported = [200, 301, 302, 307, 308, 401, 403,404,500,303]
-    if code not in supported:
-        raise ValueError(f"Unsupported status code. Choose from: {supported}")
+    if code not in SUPPORTED_CODES:
+        raise ValueError(f"Unsupported status code. Choose from: {sorted(SUPPORTED_CODES)}")
     return code
 
 
 def url_normalise(url):
-    if not url.startswith("http://") and not url.startswith("https://"):
-        url = "http://" + url
-    if not url.endswith("/"):
-        url += "/"
     url = url.strip()
-    return url
+    if not url.startswith(("http://", "https://")):
+        url = "http://" + url
+    return url if url.endswith("/") else url + "/"
 
 
 class _Resp:
@@ -32,297 +37,160 @@ class _Resp:
         self.location = location
 
 
-async def fetch_url(url, timeout=10):
+async def fetch_url(session, url, semaphore=None):
+    async def request():
+        async with session.get(url, allow_redirects=False) as response:
+            return _Resp(response.status, str(response.url), await response.text(), response.headers.get("Location"))
+
     try:
-        client_timeout = aiohttp.ClientTimeout(total=timeout)
-        async with aiohttp.ClientSession(timeout=client_timeout) as session:
-            async with session.get(url, allow_redirects=False) as response:
-                text = await response.text()
-                return _Resp(
-                    status=response.status,
-                    url=str(response.url),
-                    text=text,
-                    location=response.headers.get("Location"),
-                )
+        if semaphore is None:
+            return await request()
+        async with semaphore:
+            return await request()
     except (aiohttp.ClientError, asyncio.TimeoutError):
         return None
 
 
-async def check_url(
-    url,
-    wordlist,
-    file_name=None,
-    filter=None,
-    recursion=None,
-    v=None,
-    crawl=None,
-    text=None,
-):
-    url = url_normalise(url)
-    live = []
-    status = []
+def format_result(response):
+    if response.location:
+        return f"{response.url}, {response.status} redirected to {response.location}"
+    return response.url
+
+
+async def check_url(url, words, session, status_filter=None, recurse=False,
+                    max_depth=3, verbose=False, crawl=False, text=False,
+                    seen=None, depth=0, semaphore=None):
+    """Scan one base URL and, optionally, its discovered 200-response directories."""
+    base_url = url_normalise(url)
+    seen = seen if seen is not None else set()
+    if base_url in seen:
+        return [], [], {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
+    seen.add(base_url)
+
+    live, matches = [], []
     report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
+    targets = [urljoin(base_url, word.lstrip("/")) for word in words]
+    responses = await asyncio.gather(*(fetch_url(session, target, semaphore) for target in targets))
+    for target, response in zip(targets, responses):
+        report["total"] += 1
+        if response is None:
+            report["errors"] += 1
+            if verbose:
+                print(f"{target}, request failed")
+            continue
+        if response.status == 200:
+            report["live"] += 1
+            live.append(response.url)
+            if crawl:
+                result = main_crawl(response, text)
+                if inspect.isawaitable(result):
+                    await result
+        elif response.status in REDIRECT_CODES:
+            report["redirects"] += 1
+        elif 400 <= response.status < 500:
+            report["dead"] += 1
+        elif response.status >= 500:
+            report["errors"] += 1
 
-    try:
-        with open(wordlist, "r") as wl:
-            for word in wl:
-                r = await fetch_url(url + word)
-                if r is None:
-                    continue
+        if verbose:
+            if response.location:
+                print(format_result(response))
+            else:
+                print(f"{response.url}, {response.status}")
+        if status_filter is not None and response.status == status_filter:
+            matches.append(format_result(response))
 
-                report["total"] += 1
-                redirect_url = None
-
-                if r.status == 200:
-                    report["live"] += 1
-                    live.append(r.url)
-                    if crawl:
-                        main_crawl(r, text)
-                elif r.status in (301, 302, 303, 307, 308):
-                    report["redirects"] += 1
-                    redirect_url = r.location
-                elif r.status in (401, 403):
-                    report["dead"] += 1
-                elif r.status >= 500:
-                    report["errors"] += 1
-
-                if v:
-                    if redirect_url:
-                        print(f"{r.url}, {r.status} redirected to {redirect_url}")
-                    print(f"{r.url} , {r.status}")
-
-                if filter is not None and r.status == filter:
-                    if redirect_url:
-                        status.append(
-                            f"{r.url} , {r.status} redirected to {redirect_url}"
-                        )
-                    else:
-                        status.append(r.url)
-
-            if recursion:
-                for link in live:
-                    _, _, sub = await check_url(
-                        link,
-                        wordlist,
-                        file_name,
-                        filter,
-                        recursion,
-                        v,
-                        crawl,
-                        text,
-                    )
-                    for k in report:
-                        if k in sub:
-                            report[k] += sub[k]
-    except KeyboardInterrupt:
-        print("\nscan interrupted")
-        return live, status, report
-    except Exception as e:
-        print(e)
-
-    if file_name:
-        try:
-            with open(file_name, "a") as f:
-                saved = status if filter else live
-                f.writelines(u + "\n" for u in saved)
-        except Exception as e:
-            print(e)
-
-    return live, status, report
-
-
-async def scan_targets(
-    targets,
-    wordlist,
-    file_name=None,
-    filter=None,
-    workers=4,
-    recursion=None,
-    v=None,
-    crawl=None,
-    text=None,
-):
-    all_live = []
-    report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
-    sem = asyncio.Semaphore(workers)
-
-    async def _one(target):
-        async with sem:
-            return await check_url(
-                target, wordlist, file_name, filter, recursion, v, crawl, text
+    if recurse and depth < max_depth:
+        for link in list(live):
+            sub_live, sub_matches, sub_report = await check_url(
+                link, words, session, status_filter, recurse, max_depth, verbose,
+                crawl, text, seen, depth + 1, semaphore
             )
+            live.extend(sub_live)
+            matches.extend(sub_matches)
+            for key in report:
+                report[key] += sub_report[key]
+    return live, matches, report
 
-    results = await asyncio.gather(*[_one(u) for u in targets])
 
-    for found_live, found_status, f_report in results:
-        all_live.extend(found_live)
-        for k in report:
-            if k in f_report:
-                report[k] += f_report[k]
-        if filter is None:
-            for u in found_live:
-                print(200, u)
-        else:
-            for u in found_status:
-                print(filter, u)
-    return all_live, report
+async def scan_targets(targets, words, session, **kwargs):
+    results = await asyncio.gather(*(check_url(target, words, session, **kwargs) for target in targets))
+    all_live, all_matches = [], []
+    report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
+    for live, matches, partial in results:
+        all_live.extend(live)
+        all_matches.extend(matches)
+        for key in report:
+            report[key] += partial[key]
+    return all_live, all_matches, report
+
+
+def positive_int(value):
+    integer = int(value)
+    if integer < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return integer
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(
-        description="Brute-force directories on a target URL from a wordlist, "
-        "optionally save matching URLs and crawl their contents."
-    )
+    parser = argparse.ArgumentParser(description="Scan URL paths from a wordlist.")
     parser.add_argument("url", help="target base URL, e.g. http://example.com/")
-    parser.add_argument(
-        "wordlist", help="path to the wordlist file, one directory to check per line"
-    )
-    parser.add_argument(
-        "-s", "--file_name", metavar="FILE", help="save matching URLs to FILE"
-    )
-    parser.add_argument(
-        "--crawl",
-        nargs="?",
-        const=True,
-        default=None,
-        help="crawl found URLs and print their links. Use alone (--crawl) "
-        "to crawl the scan's own results",
-    )
-    parser.add_argument(
-        "-f", "--filter", type=int, help="only show results with this status code"
-    )
-    parser.add_argument(
-        "-R", "--recursion", action="store_true", help="recurse into found directories"
-    )
-    parser.add_argument(
-        "-t",
-        "--workers",
-        dest="workers",
-        type=int,
-        help="number of concurrent requests for parallel scan",
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="print every request"
-    )
-    parser.add_argument(
-        "--text",
-        action="store_true",
-        help="print the text content of each found page (implies --crawl)",
-    )
+    parser.add_argument("wordlist", help="path to a wordlist; one path per line")
+    parser.add_argument("-s", "--file-name", "--file_name", dest="file_name", metavar="FILE", help="save matching URLs")
+    parser.add_argument("--crawl", action="store_true", help="crawl each found 200-response URL")
+    parser.add_argument("-f", "--filter", type=int, help="only show this status code")
+    parser.add_argument("-R", "--recursion", action="store_true", help="scan found URLs recursively")
+    parser.add_argument("--max-depth", type=positive_int, default=3, help="maximum recursion depth (default: 3)")
+    parser.add_argument("-t", "--workers", type=positive_int, default=4, help="concurrent requests (default: 4)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="print every request")
+    parser.add_argument("--text", action="store_true", help="print text while crawling (implies --crawl)")
     return parser
 
 
 async def _scan(args):
-    # --text implies --crawl: dumping page text only makes sense while crawling
-    crawl = args.crawl or args.text
-
-    start = time.time()
-    # make sure the filter value is one we actually support
     if args.filter is not None:
-        try:
-            correct_code(args.filter)
-        except ValueError as e:
-            print(e)
-            return
+        correct_code(args.filter)
+    with open(args.wordlist, encoding="utf-8") as wordlist:
+        words = [line.strip() for line in wordlist if line.strip()]
+    if not words:
+        raise ValueError("wordlist contains no paths")
 
-    print(f"starting brute force on {args.url}")
-    if args.filter is not None:
-        print(f"filtering for status code {args.filter}")
-    if args.file_name is not None:
-        print(f"saving matches to {args.file_name}")
-    if crawl:
-        if crawl is True:
-            print("crawling scan results")
-        else:
-            print(f"crawling urls from {crawl}")
-
-    all_live = []
-    total_report = {"total": 0, "live": 0, "redirects": 0, "dead": 0, "errors": 0}
-
-    if args.recursion:
-        if args.workers:
-            all_live, scan_report = await scan_targets(
-                [args.url],
-                args.wordlist,
-                args.file_name,
-                args.filter,
-                workers=args.workers,
-                recursion=True,
-                v=args.verbose,
-                crawl=crawl,
-                text=args.text,
-            )
-        else:
-            live, status, scan_report = await check_url(
-                args.url,
-                args.wordlist,
-                args.file_name,
-                args.filter,
-                recursion=True,
-                v=args.verbose,
-                crawl=crawl,
-                text=args.text,
-            )
-            all_live = live
-            if filter is None:
-                for u in live:
-                    print(200, u)
-            else:
-                for u in status:
-                    print(args.filter, u)
-    elif args.workers:
-        all_live, scan_report = await scan_targets(
-            [args.url],
-            args.wordlist,
-            args.file_name,
-            args.filter,
-            workers=args.workers,
-            v=args.verbose,
-            crawl=crawl,
-            text=args.text,
+    print(f"starting scan on {args.url}")
+    start = time.monotonic()
+    timeout = aiohttp.ClientTimeout(total=10)
+    connector = aiohttp.TCPConnector(limit=args.workers)
+    semaphore = asyncio.Semaphore(args.workers)
+    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+        live, matches, report = await scan_targets(
+            [args.url], words, session, status_filter=args.filter,
+            recurse=args.recursion, max_depth=args.max_depth, verbose=args.verbose,
+            crawl=args.crawl or args.text, text=args.text, semaphore=semaphore,
         )
-    else:
-        live, status, scan_report = await check_url(
-            args.url,
-            args.wordlist,
-            args.file_name,
-            args.filter,
-            v=args.verbose,
-            crawl=crawl,
-            text=args.text,
-        )
-        all_live = live
-        if filter is None:
-            for u in live:
-                print(200, u)
-        else:
-            for u in status:
-                print(args.filter, u)
 
-    # fold the per-scan report into the totals
-    for k in total_report:
-        if k in scan_report:
-            total_report[k] += scan_report[k]
+    shown = matches if args.filter is not None else live
+    for result in shown:
+        print(args.filter if args.filter is not None else 200, result)
+    if args.file_name:
+        with open(args.file_name, "w", encoding="utf-8") as output:
+            output.writelines(f"{result}\n" for result in shown)
 
     print("=" * 60)
-    print(
-        f"scan complete: {total_report['live']} found, "
-        f"{total_report['redirects']} redirects, "
-        f"{total_report['dead']} dead, "
-        f"{total_report['errors']} errors"
-    )
+    print(f"scan complete: {report['live']} found, {report['redirects']} redirects, {report['dead']} dead, {report['errors']} errors")
     print("=" * 60)
-
-    end = time.time()
-    print(f"time taken: {end - start:.2f}s")
+    print(f"time taken: {time.monotonic() - start:.2f}s")
 
 
-if __name__ == "__main__":
+def main():
     args = build_parser().parse_args()
     try:
         asyncio.run(_scan(args))
     except KeyboardInterrupt:
         print("\nscan interrupted")
         sys.exit(1)
-    except Exception as e:
-        print(f"something went wrong: {e}")
+    except (OSError, ValueError) as error:
+        print(f"something went wrong: {error}")
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main()
